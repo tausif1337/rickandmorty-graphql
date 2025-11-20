@@ -1,242 +1,176 @@
-/**
- * CharacterList.tsx - The Main Screen Users See
- * 
- * This is the most important component! It's what users actually see and interact with.
- * Think of it like the main page of a website - it shows the list of characters.
- * 
- * WHAT THIS COMPONENT DOES:
- * 1. Shows a search box where users can type to find characters
- * 2. Displays a list of characters with their pictures and names
- * 3. Lets users favorite/unfavorite characters (click the heart)
- * 4. Shows Previous/Next buttons to navigate between pages
- */
-
-// STEP 1: Import React Native components (the building blocks for our screen)
-// These are like LEGO pieces - we combine them to build our screen
 import {
-  FlatList,          // A scrollable list (like a phone's contact list)
-  StyleSheet,        // Tool to style our components (colors, sizes, etc.)
-  View,              // A container (like a box that holds other things)
-  Text,              // Displays text on the screen
-  Image,             // Displays images (character pictures)
-  TextInput,         // A text box where users can type (the search box)
-  TouchableOpacity,  // A button that users can press
+  FlatList,
+  StyleSheet,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
-
-// STEP 2: Import Apollo Client's useQuery hook
-// This is like a tool that asks the server for data
 import { useQuery } from "@apollo/client/react";
-
-// STEP 3: Import our GraphQL query (the question we ask the server)
 import { GET_CHARACTERS_PAGINATED } from "../queries/characters";
-
-// STEP 4: Import our custom hook to access app-wide data
 import { useAppContext } from "../context/AppContext";
 
-/**
- * TYPE DEFINITIONS - Telling TypeScript What Our Data Looks Like
- * 
- * Think of types like labels on boxes - they tell us what's inside.
- * TypeScript uses these to catch mistakes before the app runs.
- */
-
-// What a single character looks like
 type Character = {
-  id: string;        // Unique ID (like "1", "2", "3")
-  name: string;      // Character's name (like "Rick Sanchez")
-  image: string;    // URL to the character's picture
-  status?: string;  // "Alive", "Dead", or "Unknown" (the ? means optional)
-  species?: string; // "Human", "Alien", etc. (the ? means optional)
+  id: string;
+  name: string;
+  image: string;
+  status?: string;
+  species?: string;
 };
 
-// What the server sends back when we ask for characters
 type CharactersData = {
   characters: {
     info: {
-      pages: number;      // Total number of pages
-      next: number | null; // Next page number (or null if no next page)
-      prev: number | null; // Previous page number (or null if no previous page)
+      pages: number;
+      next: number | null;
+      prev: number | null;
     };
-    results: Character[]; // The actual list of characters
+    results: Character[];
   };
 };
 
-/**
- * CharacterList Component - The Main Function
- * 
- * This function returns (shows) everything the user sees on the screen.
- * It's like a recipe - we follow the steps to create the screen.
- */
 export default function CharacterList() {
-  /**
-   * STEP 1: Get Data from Context (Our Global Storage)
-   * 
-   * useAppContext() is like opening a shared notebook and reading from it.
-   * We get all the data and functions we need:
-   * - searchFilter: What the user typed in the search box
-   * - setSearchFilter: Function to update the search text
-   * - currentPage: Which page we're viewing (1, 2, 3, etc.)
-   * - setCurrentPage: Function to change the page
-   * - isFavorite: Function to check if a character is favorited
-   * - addToFavorites: Function to add a character to favorites
-   * - removeFromFavorites: Function to remove a character from favorites
-   */
   const {
-    searchFilter,
-    setSearchFilter,
     currentPage,
     setCurrentPage,
-    isFavorite,
-    addToFavorites,
-    removeFromFavorites,
   } = useAppContext();
 
-  /**
-   * STEP 2: Ask the Server for Character Data
-   * 
-   * useQuery is like making a phone call to the server and asking:
-   * "Hey, give me the characters for page X, and filter by name Y"
-   * 
-   * It returns:
-   * - data: The characters we got back (or undefined if still loading)
-   */
-  const { data } = useQuery<CharactersData>(
-    GET_CHARACTERS_PAGINATED, // The question we're asking
+  const { data, loading, error, refetch } = useQuery<CharactersData>(
+    GET_CHARACTERS_PAGINATED,
     {
-      // variables: The parameters we're sending with our question
       variables: {
-        page: currentPage,                    // Which page we want
-        filter: searchFilter || undefined,    // Search text (or nothing if empty)
+        page: currentPage,
       },
-      errorPolicy: "all", // Even if there's an error, still show what data we have
+      errorPolicy: "all",
     }
   );
 
-  /**
-   * STEP 3: Extract the Data We Need
-   * 
-   * The server sends back data in a specific format. We extract what we need:
-   * - characters: The list of characters
-   * - info: Information about pagination (next page, previous page, etc.)
-   * 
-   * The "?" and "||" are safety checks:
-   * - data?.characters means "if data exists, get characters, otherwise undefined"
-   * - || [] means "if the left side is empty/undefined, use [] instead"
-   */
   const characters = data?.characters?.results || [];
   const info = data?.characters?.info;
 
-  // Limit to 2 pages for simplicity (you can change this number)
   const maxPages = 2;
 
-  // Check if we can go to the next page
-  // hasNext is true if: there's a next page AND we haven't reached maxPages
   const hasNext = info?.next !== null && currentPage < maxPages;
-
-  // Check if we can go to the previous page
-  // hasPrev is true if: there's a previous page
   const hasPrev = info?.prev !== null;
 
-  /**
-   * STEP 4: Show the Main Screen
-   * 
-   * Display the full screen with:
-   * - Search box
-   * - List of characters
-   * - Previous/Next buttons
-   */
+  if (loading && !data) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Rick & Morty</Text>
+          <Text style={styles.headerSubtitle}>Character Explorer</Text>
+        </View>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#8b9dc3" />
+          <Text style={styles.loadingText}>Loading characters...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Rick & Morty</Text>
+          <Text style={styles.headerSubtitle}>Character Explorer</Text>
+        </View>
+        <View style={styles.center}>
+          <Text style={styles.errorTitle}>Oops! Something went wrong</Text>
+          <Text style={styles.errorText}>{error.message}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* SEARCH BOX */}
-      {/* TextInput is like a text box where users can type */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search characters..." // Hint text shown when box is empty
-        value={searchFilter}                // The current search text
-        onChangeText={setSearchFilter}      // When user types, update the search text
-      />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Rick & Morty</Text>
+        <Text style={styles.headerSubtitle}>Character Explorer</Text>
+      </View>
 
-      {/* CHARACTER LIST */}
-      {/* FlatList is like a scrollable list - perfect for showing many items */}
       <FlatList
-        data={characters} // The list of characters to show
-        keyExtractor={(item) => item.id} // Each item needs a unique key (we use the ID)
+        data={characters}
+        keyExtractor={(item) => item.id}
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          // For each character, show a card with their info
           <View style={styles.card}>
-            {/* Character's picture */}
             <Image source={{ uri: item.image }} style={styles.image} />
             
-            {/* Character's info (name, status, species) */}
             <View style={styles.content}>
-              {/* Character's name */}
-              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
               
-              {/* Status and species (only show if they exist) */}
-              {item.status && (
-                <Text style={styles.status}>
-                  {item.status} • {item.species}
-                </Text>
-              )}
-              
-              {/* FAVORITE BUTTON */}
-              {/* TouchableOpacity is a button users can press */}
-              <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={() => {
-                  // When pressed, check if it's already a favorite
-                  if (isFavorite(item.id)) {
-                    // If yes, remove it from favorites
-                    removeFromFavorites(item.id);
-                  } else {
-                    // If no, add it to favorites
-                    addToFavorites(item.id);
-                  }
-                }}
-              >
-                {/* Show red heart if favorited, white heart if not */}
-                <Text>{isFavorite(item.id) ? "❤️" : "🤍"}</Text>
-              </TouchableOpacity>
+              <View style={styles.badgesContainer}>
+                {item.status && (
+                  <View style={[
+                    styles.statusBadge,
+                    item.status === "Alive" && styles.statusBadgeAlive,
+                    item.status === "Dead" && styles.statusBadgeDead,
+                    item.status === "unknown" && styles.statusBadgeUnknown,
+                  ]}>
+                    <View style={[
+                      styles.statusDot,
+                      item.status === "Alive" && styles.statusDotAlive,
+                      item.status === "Dead" && styles.statusDotDead,
+                      item.status === "unknown" && styles.statusDotUnknown,
+                    ]} />
+                    <Text style={styles.statusText}>{item.status}</Text>
+                  </View>
+                )}
+                {item.species && (
+                  <View style={styles.speciesBadge}>
+                    <Text style={styles.speciesText}>{item.species}</Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
         )}
       />
 
-      {/* PAGINATION CONTROLS */}
-      {/* Only show pagination if we have page info */}
       {info && (
         <View style={styles.pagination}>
-          {/* PREVIOUS BUTTON */}
           <TouchableOpacity
-            style={[styles.button, !hasPrev && styles.buttonDisabled]}
+            style={[styles.paginationButton, !hasPrev && styles.paginationButtonDisabled]}
             onPress={() => {
-              // When pressed, go to previous page (if we can)
               if (hasPrev && info.prev) {
                 setCurrentPage(info.prev);
               }
             }}
-            disabled={!hasPrev} // Disable button if we can't go back
+            disabled={!hasPrev}
+            activeOpacity={0.7}
           >
-            <Text style={styles.buttonText}>Previous</Text>
+            <Text style={[styles.paginationButtonText, !hasPrev && styles.paginationButtonTextDisabled]}>
+              ← Previous
+            </Text>
           </TouchableOpacity>
 
-          {/* PAGE NUMBER DISPLAY */}
-          <Text style={styles.pageText}>
-            Page {currentPage} / {maxPages}
-          </Text>
+          <View style={styles.pageIndicator}>
+            <Text style={styles.pageText}>
+              {currentPage} / {maxPages}
+            </Text>
+          </View>
 
-          {/* NEXT BUTTON */}
           <TouchableOpacity
-            style={[styles.button, !hasNext && styles.buttonDisabled]}
+            style={[styles.paginationButton, !hasNext && styles.paginationButtonDisabled]}
             onPress={() => {
-              // When pressed, go to next page (if we can)
               if (hasNext && currentPage < maxPages) {
                 setCurrentPage(currentPage + 1);
               }
             }}
-            disabled={!hasNext} // Disable button if we can't go forward
+            disabled={!hasNext}
+            activeOpacity={0.7}
           >
-            <Text style={styles.buttonText}>Next</Text>
+            <Text style={[styles.paginationButtonText, !hasNext && styles.paginationButtonTextDisabled]}>
+              Next →
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -244,102 +178,246 @@ export default function CharacterList() {
   );
 }
 
-/**
- * STYLES - How Everything Looks
- * 
- * StyleSheet.create() is like a style guide that tells each component
- * how to look (colors, sizes, spacing, etc.).
- * 
- * Think of it like choosing paint colors and furniture for your house.
- */
 const styles = StyleSheet.create({
-  // Main container (the whole screen)
   container: {
-    flex: 1,                    // Take up all available space
-    backgroundColor: "#f5f5f5", // Light gray background
+    flex: 1,
+    backgroundColor: "#0a0e27",
   },
   
-  // Search input box
-  searchInput: {
-    backgroundColor: "#fff",    // White background
-    padding: 12,                // Space inside the box
-    margin: 16,                 // Space around the box
-    borderRadius: 8,            // Rounded corners
-    fontSize: 16,               // Text size
+  header: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: "#0a0e27",
   },
   
-  // Character card (the box around each character)
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  
+  headerSubtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#8b9dc3",
+    marginBottom: 20,
+    letterSpacing: 0.3,
+  },
+  
+  listContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  
   card: {
-    backgroundColor: "#fff",    // White background
-    marginHorizontal: 16,      // Space on left and right
-    marginVertical: 8,          // Space on top and bottom
-    borderRadius: 8,            // Rounded corners
-    overflow: "hidden",         // Hide anything that goes outside the card
+    backgroundColor: "#1a1f3a",
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   
-  // Character image
   image: {
-    width: "100%",              // Full width of the card
-    height: 200,                // 200 pixels tall
+    width: "100%",
+    height: 280,
+    resizeMode: "cover",
   },
   
-  // Content area (name, status, favorite button)
   content: {
-    padding: 16,                // Space inside the content area
+    padding: 20,
   },
   
-  // Character name
   name: {
-    fontSize: 18,               // Large text
-    fontWeight: "bold",         // Bold text
-    marginBottom: 4,            // Small space below
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   
-  // Status and species text
-  status: {
-    fontSize: 14,               // Medium text
-    color: "#666",              // Gray color
+  badgesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   
-  // Favorite button
-  favoriteButton: {
-    marginTop: 8,               // Space above the button
-    alignSelf: "flex-start",    // Align to the left
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#2a2f4a",
   },
   
-  // Pagination container (Previous/Next buttons area)
+  statusBadgeAlive: {
+    backgroundColor: "rgba(46, 213, 115, 0.2)",
+  },
+  
+  statusBadgeDead: {
+    backgroundColor: "rgba(231, 76, 60, 0.2)",
+  },
+  
+  statusBadgeUnknown: {
+    backgroundColor: "rgba(149, 165, 166, 0.2)",
+  },
+  
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+    backgroundColor: "#8b9dc3",
+  },
+  
+  statusDotAlive: {
+    backgroundColor: "#2ed573",
+  },
+  
+  statusDotDead: {
+    backgroundColor: "#e74c3c",
+  },
+  
+  statusDotUnknown: {
+    backgroundColor: "#95a5a6",
+  },
+  
+  statusText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#ffffff",
+    textTransform: "capitalize",
+  },
+  
+  speciesBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "rgba(138, 157, 195, 0.2)",
+  },
+  
+  speciesText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#8b9dc3",
+  },
+  
   pagination: {
-    flexDirection: "row",        // Arrange items in a row (side by side)
-    justifyContent: "space-between", // Space items evenly
-    alignItems: "center",       // Center items vertically
-    padding: 16,                // Space inside
-    backgroundColor: "#fff",    // White background
-    borderTopWidth: 1,          // Top border (1 pixel thick)
-    borderTopColor: "#ddd",     // Light gray border color
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 30,
+    backgroundColor: "#0a0e27",
+    borderTopWidth: 1,
+    borderTopColor: "#1a1f3a",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
   },
   
-  // Button (Previous/Next buttons)
-  button: {
-    backgroundColor: "#3498db", // Blue background
-    paddingHorizontal: 20,      // Space on left and right
-    paddingVertical: 10,        // Space on top and bottom
-    borderRadius: 8,            // Rounded corners
+  paginationButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "#2a2f4a",
+    minWidth: 100,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   
-  // Disabled button (when you can't click it)
-  buttonDisabled: {
-    backgroundColor: "#ccc",    // Gray background (looks disabled)
+  paginationButtonDisabled: {
+    backgroundColor: "#1a1f3a",
+    opacity: 0.5,
   },
   
-  // Button text
-  buttonText: {
-    color: "#fff",              // White text
-    fontWeight: "600",          // Semi-bold text
+  paginationButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "600",
   },
   
-  // Page number text
+  paginationButtonTextDisabled: {
+    color: "#8b9dc3",
+  },
+  
+  pageIndicator: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#1a1f3a",
+  },
+  
   pageText: {
-    fontSize: 16,               // Medium text
-    fontWeight: "600",          // Semi-bold text
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#8b9dc3",
+  },
+  
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#8b9dc3",
+    fontWeight: "500",
+  },
+  
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  
+  errorText: {
+    fontSize: 16,
+    color: "#8b9dc3",
+    marginBottom: 24,
+    textAlign: "center",
+    paddingHorizontal: 20,
+    lineHeight: 24,
+  },
+  
+  retryButton: {
+    backgroundColor: "#2a2f4a",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  
+  retryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
