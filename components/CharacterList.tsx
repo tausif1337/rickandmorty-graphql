@@ -71,7 +71,7 @@ export default function CharacterList() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Rick & Morty</Text>
+          <Text style={styles.headerTitle}>Rick & Morty (OTA Test)</Text>
           <Text style={styles.headerSubtitle}>Character Explorer</Text>
         </View>
         <View style={styles.center}>
